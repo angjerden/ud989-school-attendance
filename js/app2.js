@@ -57,20 +57,33 @@ $(function() {
         },
         getStudents: function() {
             return model.students;
+        },
+        saveStudentsToStorage: function() {
+            model.saveStudentsToStorage();
         }
     };
 
     var view = {
         init: function() {
             //generate header
+            this.generateHeader();
+
+            //generate row for each student
+            this.generateStudentRows();
+
+            this.countDaysMissed();
+
+            this.addEventToCheckBoxes();
+        },
+        generateHeader: function() {
             var tr = $('#attendanceheader tr');
             tr.append("<th class='name-col'>Student Name</th>");
             for (var i = 1; i <= octopus.getDays(); i++){
                 tr.append("<th>" + i + "</th>");
             }
             tr.append("<th class='missed-col'>Days Missed-col</th>");
-
-            //generate row for each student
+        },
+        generateStudentRows: function() {
             var attendanceBody = $('#attendancebody');
             var students = octopus.getStudents();
             for (var i = 0; i < students.length; i++) {
@@ -79,18 +92,60 @@ $(function() {
                 //generate columns in student row
                 studentRow.append("<td class='name-col'>" + students[i].name + "</td>");
 
-                for (var j = 0; j < octopus.getDays(); j++) {
-                    var dayColumn = $('<td></td>').addClass('attend-col');
-                    var dayCheckBox = $("<input type='checkbox'></input>")
-                        .prop('checked', students[i].attendance[j]);
-                    dayColumn.append(dayCheckBox);
-                    studentRow.append(dayColumn);
-                }
-                studentRow.append("<td class='missed-col'>" + 0 + "</td>");
+                this.generateDayColumns(studentRow, i);
+
+                var missedColumn = $('<td></td>')
+                    .addClass('missed-col')
+                    .attr('studentindex', i)
+                    .text('0');
+
+                studentRow.append(missedColumn);
 
                 attendanceBody.append(studentRow);
             }
             attendanceBody.append("")
+        },
+        generateDayColumns: function(studentRow, studentIndex) {
+            for (var j = 0; j < octopus.getDays(); j++) {
+                var dayColumn = $('<td></td>').addClass('attend-col');
+                var dayCheckBox = $("<input type='checkbox'></input>")
+                    .prop('checked', octopus.getStudents()[studentIndex].attendance[j])
+                    .attr('studentindex', studentIndex);
+                dayColumn.append(dayCheckBox);
+                studentRow.append(dayColumn);
+            }
+        },
+        addEventToCheckBoxes: function() {
+            var allCheckBoxes = $('tbody input');
+            $(allCheckBoxes).on('click', function(e) {
+                var studentIndex = e.target.attributes.studentindex.value;
+                var student = octopus.getStudents()[studentIndex];
+                var newAttendance = [];
+
+                var checkBoxesForStudent =
+                    $("input[type='checkbox'][studentindex=" + studentIndex + "]");
+                $(checkBoxesForStudent).each(function(index, checkBox){
+                    newAttendance.push(checkBox.checked);
+                });
+
+                student.attendance = newAttendance;
+
+                octopus.saveStudentsToStorage();
+                view.countDaysMissed();
+            });
+
+        },
+        countDaysMissed: function() {
+            var students = octopus.getStudents();
+            $(students).each(function(index, student) {
+                var daysMissed = 0;
+                $(student.attendance).each(function(i, attended) {
+                    if (!attended) {
+                        daysMissed++;
+                    }
+                });
+                $("td.missed-col[studentindex=" + index + "]").text(daysMissed);
+            });
         }
     };
 
